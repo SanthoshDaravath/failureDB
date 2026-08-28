@@ -1,0 +1,17 @@
+# Java
+backend/target/
+*.class
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+
+# Local configuration and tooling
+.env
+.env.local
+.idea/
+*.iml
+
+# Operating system files
+.DS_Store
+Thumbs.db

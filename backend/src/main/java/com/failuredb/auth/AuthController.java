@@ -1,0 +1,14 @@
+package com.failuredb.auth;
+import com.failuredb.user.UserAccount; import com.failuredb.user.UserAccountRepository; import jakarta.validation.Valid; import jakarta.validation.constraints.*; import java.util.UUID; import org.springframework.http.HttpStatus; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.security.core.userdetails.UserDetails; import org.springframework.security.crypto.password.PasswordEncoder; import org.springframework.web.bind.annotation.*; import org.springframework.web.server.ResponseStatusException;
+@RestController @RequestMapping("/api/auth")
+public class AuthController {
+ private final UserAccountRepository users; private final PasswordEncoder encoder;
+ AuthController(UserAccountRepository users, PasswordEncoder encoder){this.users=users;this.encoder=encoder;}
+ @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED) public UserResponse register(@Valid @RequestBody RegisterRequest request){ String username=request.username().trim().toLowerCase(); String email=request.email().trim().toLowerCase(); if(users.existsByUsernameIgnoreCase(username)||users.existsByEmailIgnoreCase(email)) throw new ResponseStatusException(HttpStatus.CONFLICT,"Username or email already exists"); UserAccount user=users.save(new UserAccount(UUID.randomUUID(),username,email,encoder.encode(request.password()))); return UserResponse.of(user); }
+ @PostMapping("/login") public LoginResponse login(@Valid @RequestBody LoginRequest request){ UserAccount user=users.findByUsernameIgnoreCase(request.username().trim()).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid username or password")); if(!encoder.matches(request.password(),user.getPasswordHash())) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid username or password"); String value=java.util.Base64.getEncoder().encodeToString((user.getUsername()+":"+request.password()).getBytes(java.nio.charset.StandardCharsets.UTF_8)); return new LoginResponse("Basic "+value,UserResponse.of(user)); }
+ @GetMapping("/me") public UserResponse me(@AuthenticationPrincipal UserDetails principal){ if(principal==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED); return users.findByUsernameIgnoreCase(principal.getUsername()).map(UserResponse::of).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED)); }
+ public record RegisterRequest(@NotBlank @Pattern(regexp="^[a-zA-Z0-9_-]{3,40}$") String username,@NotBlank @Email String email,@NotBlank @Size(min=8,max=100) String password){}
+ public record LoginRequest(@NotBlank String username,@NotBlank String password){}
+ public record LoginResponse(String authorization,UserResponse user){}
+ public record UserResponse(String id,String username,String email){ static UserResponse of(UserAccount user){return new UserResponse(user.getId().toString(),user.getUsername(),user.getEmail());} }
+}

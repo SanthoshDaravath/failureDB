@@ -1,0 +1,12 @@
+package com.failuredb.repository;
+import com.failuredb.user.UserAccount; import com.failuredb.user.UserAccountRepository; import jakarta.validation.Valid; import jakarta.validation.constraints.*; import java.util.*; import org.springframework.http.HttpStatus; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.security.core.userdetails.UserDetails; import org.springframework.web.bind.annotation.*; import org.springframework.web.server.ResponseStatusException;
+@RestController @RequestMapping("/api/repos")
+public class RepositoryController {
+ private final FailureRepositoryJpa repos; private final UserAccountRepository users; RepositoryController(FailureRepositoryJpa repos,UserAccountRepository users){this.repos=repos;this.users=users;}
+ @GetMapping public List<RepositoryResponse> all(){return repos.findAllByOrderByCreatedAtDesc().stream().map(RepositoryResponse::of).toList();}
+ @PostMapping @ResponseStatus(HttpStatus.CREATED) public RepositoryResponse create(@AuthenticationPrincipal UserDetails principal,@Valid @RequestBody CreateRepository request){ UserAccount owner=current(principal); String slug=slugify(request.title()); if(repos.existsBySlug(slug)) slug += "-"+UUID.randomUUID().toString().substring(0,6); return RepositoryResponse.of(repos.save(new FailureRepository(owner,slug,request.title().trim(),request.description().trim(),request.category(),request.industry(),request.visibility()))); }
+ private UserAccount current(UserDetails p){if(p==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);return users.findByUsernameIgnoreCase(p.getUsername()).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED));}
+ private String slugify(String value){return value.toLowerCase().replaceAll("[^a-z0-9]+","-").replaceAll("(^-|-$)","");}
+ public record CreateRepository(@NotBlank @Size(max=160) String title,@NotBlank @Size(max=1000) String description,@NotBlank String category,@Size(max=120) String industry,@NotBlank @Pattern(regexp="PUBLIC|PRIVATE|TEAM") String visibility){}
+ public record RepositoryResponse(String id,String slug,String title,String description,String category,String industry,String visibility,String owner,java.time.Instant createdAt){static RepositoryResponse of(FailureRepository r){return new RepositoryResponse(r.getId().toString(),r.getSlug(),r.getTitle(),r.getDescription(),r.getCategory(),r.getIndustry(),r.getVisibility(),r.getOwner().getUsername(),r.getCreatedAt());}}
+}
