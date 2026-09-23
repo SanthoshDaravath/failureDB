@@ -2,7 +2,7 @@ import { FormEvent, StrictMode, useEffect, useMemo, useState, type ReactNode } f
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 
-const API = 'http://localhost:8080/api'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 type Repo = { id:string; title:string; description:string; category:string; industry:string; owner:string; visibility:string }
 type Failure = { id:string; title:string; summary:string; rootCause:string; warningSigns:string; lessonsLearned:string; prevention:string; severity:number; tags:string; occurredYear:number; repository:string; repositoryId:string; category:string; author:string; createdAt:string }
 const auth = () => localStorage.getItem('failuredb-basic') || ''
